@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rezervácia tenisových kurtov</title>
+  <meta name="description" content="Online rezervácia tenisových kurtov – 8 € / hodina.">
+  <meta name="theme-color" content="#1b6b3a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tenis">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <h1>🎾 Tenisové kurty</h1>
+    <p>Rezervujte si kurt online · <strong>8 € / hodina</strong> · otvorené 08:00 – 21:00</p>
+  </header>
+
+  <div id="install-banner" class="install-banner" hidden>
+    <span id="install-text">Uložiť aplikáciu do mobilu</span>
+    <button id="install-btn" type="button">Uložiť</button>
+    <button id="install-close" type="button" aria-label="Zavrieť">✕</button>
+  </div>
+  <div id="ios-hint" class="ios-hint" hidden>
+    Kliknite na <b>Zdieľať</b> <span aria-hidden="true">⬆️</span> a vyberte <b>Pridať na plochu</b>.
+    <button id="ios-close" type="button" aria-label="Zavrieť">✕</button>
+  </div>
+
+  <main id="app">
+    <section class="card" id="step-court">
+      <h2><span class="num">1</span> Vyberte kurt</h2>
+      <div id="courts" class="courts" role="tablist"></div>
+    </section>
+
+    <section class="card" id="step-date">
+      <h2><span class="num">2</span> Vyberte dátum</h2>
+      <div class="cal-head">
+        <button id="prev-month" type="button" aria-label="Predchádzajúci mesiac">‹</button>
+        <strong id="month-label"></strong>
+        <button id="next-month" type="button" aria-label="Nasledujúci mesiac">›</button>
+      </div>
+      <div class="cal-grid cal-dow">
+        <span>Po</span><span>Ut</span><span>St</span><span>Št</span><span>Pi</span><span>So</span><span>Ne</span>
+      </div>
+      <div id="calendar" class="cal-grid"></div>
+    </section>
+
+    <section class="card" id="step-time" hidden>
+      <h2><span class="num">3</span> Vyberte čas</h2>
+      <p class="muted" id="time-sub"></p>
+      <div id="slots" class="slots" aria-live="polite"></div>
+      <p class="muted small">Môžete vybrať viac po sebe idúcich hodín.</p>
+    </section>
+
+    <section class="card" id="step-form" hidden>
+      <h2><span class="num">4</span> Vaše údaje</h2>
+      <dl class="summary">
+        <div><dt>Kurt</dt><dd id="sum-court"></dd></div>
+        <div><dt>Dátum</dt><dd id="sum-date"></dd></div>
+        <div><dt>Čas</dt><dd id="sum-time"></dd></div>
+        <div class="total"><dt>Celkom</dt><dd id="sum-price"></dd></div>
+      </dl>
+      <form id="booking-form" novalidate>
+        <label>Meno a priezvisko *
+          <input name="name" autocomplete="name" required minlength="3">
+        </label>
+        <label>E-mail *
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Telefónne číslo *
+          <input name="phone" type="tel" autocomplete="tel" placeholder="+421900000000" required>
+        </label>
+        <label>Poznámka
+          <textarea name="note" rows="2" maxlength="500"></textarea>
+        </label>
+        <p class="muted small">Platba na mieste (hotovosť alebo karta).</p>
+        <p id="form-error" class="error" role="alert" hidden></p>
+        <button id="submit-btn" class="primary" type="submit">
+          <span class="spinner" hidden></span><span class="label">Potvrdiť rezerváciu</span>
+        </button>
+      </form>
+    </section>
+
+    <section class="card success" id="step-done" hidden>
+      <div class="check">✓</div>
+      <h2>Rezervácia potvrdená!</h2>
+      <p id="done-text"></p>
+      <p class="muted">Potvrdenie sme poslali na váš e-mail. Sumu uhradíte na mieste.</p>
+      <button id="new-booking" class="primary" type="button">Nová rezervácia</button>
+    </section>
+  </main>
+
+  <footer><small>© Tenisové kurty</small></footer>
+  <script src="/app.js"></script>
+</body>
+</html>
