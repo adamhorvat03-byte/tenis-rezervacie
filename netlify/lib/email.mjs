@@ -30,7 +30,7 @@ export function buildEmails(b) {
     ['Dátum', date],
     ['Čas', time],
     ['Cena', price],
-    ['Meno', b.customer.name],
+    ['Meno klienta', b.customer.name],
     ['Telefón', b.customer.phone],
     ['E-mail', b.customer.email],
     ['Poznámka', b.customer.note || '–'],
@@ -57,34 +57,83 @@ export function buildEmails(b) {
 }
 
 async function send(mail, to, from, apiKey) {
+  const recipients = [].concat(to).filter(Boolean);
+  if (!recipients.length) return { ok: true, skipped: true };
+
   if (!apiKey) {
-    console.log(`\n[EMAIL – RESEND_API_KEY nie je nastavený, len výpis]\nKomu: ${[].concat(to).join(', ')}\nOd: ${from}\nPredmet: ${mail.subject}\n${mail.text}\n`);
+    console.warn(`[EMAIL] ⚠️ RESEND_API_KEY nie je nastavený. Pre skutočné doručenie e-mailov do schránky nastavte RESEND_API_KEY.`);
+    console.log(`[EMAIL SIMULÁCIA]\nKomu: ${recipients.join(', ')}\nOd: ${from}\nPredmet: ${mail.subject}\n${mail.text}\n`);
     return { ok: true, simulated: true };
   }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [].concat(to), subject: mail.subject, text: mail.text, html: mail.html }),
-  });
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
-  return { ok: true };
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: recipients,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const errMsg = data?.message || (typeof data === 'string' ? data : JSON.stringify(data));
+      throw new Error(`Resend API HTTP ${res.status}: ${errMsg}`);
+    }
+
+    console.log(`[EMAIL] ✅ Úspešne odoslané na: ${recipients.join(', ')} (Resend ID: ${data?.id})`);
+    return { ok: true, id: data?.id };
+  } catch (err) {
+    console.error(`[EMAIL] ❌ Zlyhalo odoslanie na: ${recipients.join(', ')}:`, err.message);
+    throw err;
+  }
 }
 
 export const DEFAULT_ADMIN_EMAIL = 'adam.horvat03@gmail.com';
 
 /** Nikdy nevyhodí chybu – zlyhanie e-mailu nesmie zrušiť rezerváciu. */
 export async function sendBookingEmails(booking) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.FROM_EMAIL || 'Tenisové kurty <onboarding@resend.dev>';
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+
+  // Ak je FROM_EMAIL nevyplnený alebo obsahuje neoverenú vzorovú doménu, použijeme oficiálnu Resend doménu onboarding@resend.dev
+  let from = process.env.FROM_EMAIL?.trim();
+  if (!from || from.includes('example.sk') || from.includes('example.com') || from.includes('test.com')) {
+    from = 'Tenisové kurty <onboarding@resend.dev>';
+  }
+
   const managerEmail = process.env.MANAGER_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
   const adminEmail = process.env.ADMIN_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
-  const admins = [...new Set([managerEmail, adminEmail].filter(Boolean))];
+  const admins = [...new Set([managerEmail, adminEmail, DEFAULT_ADMIN_EMAIL].filter(Boolean))];
+
   const { adminMail, clientMail } = buildEmails(booking);
 
   const jobs = [];
-  if (admins.length) jobs.push(send(adminMail, admins, from, apiKey));
-  jobs.push(send(clientMail, booking.customer.email, from, apiKey));
+
+  // 1. Notifikácia o novej rezervácii pre správcu/administrátora (adam.horvat03@gmail.com)
+  if (admins.length) {
+    jobs.push(send(adminMail, admins, from, apiKey));
+  }
+
+  // 2. Potvrdenie rezervácie odoslané priamo na adam.horvat03@gmail.com
+  jobs.push(send(clientMail, DEFAULT_ADMIN_EMAIL, from, apiKey));
+
+  // 3. Ak klient v rezervácii zadal inú e-mailovú adresu, pokúsime sa odoslať potvrdenie aj tam
+  const customerEmail = booking.customer?.email?.trim();
+  if (customerEmail && customerEmail.toLowerCase() !== DEFAULT_ADMIN_EMAIL.toLowerCase()) {
+    jobs.push(send(clientMail, customerEmail, from, apiKey));
+  }
 
   const results = await Promise.allSettled(jobs);
-  results.forEach((r) => r.status === 'rejected' && console.error('[email] chyba:', r.reason?.message || r.reason));
+  results.forEach((r) => {
+    if (r.status === 'rejected') {
+      console.error('[EMAIL] Chyba úlohy:', r.reason?.message || r.reason);
+    }
+  });
 }
