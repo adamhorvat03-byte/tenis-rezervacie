@@ -1,6 +1,6 @@
 # 🎾 Rezervačný systém pre tenisové kurty (PWA + Netlify Serverless)
 
-Produkčne pripravená webová aplikácia (Progressive Web App) pre online rezerváciu tenisových kurtov so serverless backendom na **Netlify Functions**, úložiskom **Netlify Blobs** (s automatickým lokálnym fallbackom) a e-mailovými notifikáciami cez **Resend API**.
+Produkčne pripravená webová aplikácia (Progressive Web App) pre online rezerváciu tenisových kurtov so serverless backendom na **Netlify Functions**, úložiskom **Netlify Blobs** (s automatickým lokálnym fallbackom) a e-mailovými notifikáciami cez **Gmail SMTP (`nodemailer`)**.
 
 ---
 
@@ -21,14 +21,14 @@ tenis-rezervacie/
 │   └── lib/
 │       ├── config.mjs          # Konfigurácia kurtov, otváracích hodín (08:00–21:00) a ceny (8 €/h)
 │       ├── storage.mjs         # Abstrakcia úložiska: @netlify/blobs + lokálny JSON fallback
-│       └── email.mjs           # Odosielanie e-mailov cez Resend API + konzolový fallback
+│       └── email.mjs           # Odosielanie e-mailov cez Gmail SMTP (nodemailer) + konzolový fallback
 ├── scripts/
 │   ├── make-icons.mjs          # Generátor PWA ikon
 │   ├── e2e.mjs                 # E2E test API endpointov a súbežných rezervácií
 │   └── deploy-github.ps1       # Pomocný PowerShell skript pre push na GitHub
 ├── dev-server.mjs              # Lokálny vývojový server (bez nutnosti Netlify CLI)
 ├── netlify.toml                # Konfigurácia Netlify build, redirects (/api/*) a hlavičiek
-├── package.json                # Závislosti projektu (@netlify/blobs)
+├── package.json                # Závislosti projektu (@netlify/blobs, nodemailer)
 └── .env.example                # Vzor premenných prostredia
 ```
 
@@ -81,10 +81,9 @@ Spustite v PowerShell:
 
 | Premenná | Hodnota | Poznámka |
 |---|---|---|
-| `RESEND_API_KEY` | `re_xxxxxxxxx` | Váš API kľúč zo služby [Resend](https://resend.com) |
+| `GMAIL_USER` | `adam.horvat03@gmail.com` | Váš Gmail účet pre odosielanie SMTP |
+| `GMAIL_APP_PASSWORD` | `xxxx xxxx xxxx xxxx` | 16-miestne Heslo aplikácie (App Password) z Google účtu |
 | `MANAGER_EMAIL` | `adam.horvat03@gmail.com` | E-mail správcu kurtov (predvolené aj v kóde) |
-| `ADMIN_EMAIL` | `adam.horvat03@gmail.com` | E-mail administrátora (predvolené aj v kóde) |
-| `FROM_EMAIL` | `Tenisové kurty <rezervacie@vasadomena.sk>` | Overená odosielacia adresa v Resend (voliteľné) |
 
 6. Kliknite na **Deploy site** (ak ste menili premenné dodatočne, spustite **Trigger deploy → Deploy site**).
 
@@ -99,9 +98,9 @@ netlify login
 netlify init
 
 # Nastavenie environment premenných
-netlify env:set RESEND_API_KEY "re_vas_api_kluc"
+netlify env:set GMAIL_USER "adam.horvat03@gmail.com"
+netlify env:set GMAIL_APP_PASSWORD "vase_16_miestne_heslo_aplikacie"
 netlify env:set MANAGER_EMAIL "adam.horvat03@gmail.com"
-netlify env:set ADMIN_EMAIL "adam.horvat03@gmail.com"
 
 # Produkčný deploy
 netlify deploy --prod

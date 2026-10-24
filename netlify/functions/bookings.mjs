@@ -101,7 +101,11 @@ async function handlePost(req) {
     return json({ error: 'Rezerváciu sa nepodarilo uložiť. Skúste to znova.' }, 500);
   }
 
-  await sendBookingEmails(booking);
+  try {
+    await sendBookingEmails(booking);
+  } catch (emailErr) {
+    console.error('[bookings] chyba pri odosielaní e-mailov:', emailErr);
+  }
 
   // Klientovi vraciame iba nevyhnutné údaje
   return json({ booking: {

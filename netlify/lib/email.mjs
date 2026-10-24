@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+
 const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -56,84 +58,73 @@ export function buildEmails(b) {
   return { adminMail, clientMail };
 }
 
-async function send(mail, to, from, apiKey) {
-  const recipients = [].concat(to).filter(Boolean);
-  if (!recipients.length) return { ok: true, skipped: true };
+export const DEFAULT_MANAGER_EMAIL = 'adam.horvat03@gmail.com';
 
-  if (!apiKey) {
-    console.warn(`[EMAIL] ⚠️ RESEND_API_KEY nie je nastavený. Pre skutočné doručenie e-mailov do schránky nastavte RESEND_API_KEY.`);
-    console.log(`[EMAIL SIMULÁCIA]\nKomu: ${recipients.join(', ')}\nOd: ${from}\nPredmet: ${mail.subject}\n${mail.text}\n`);
-    return { ok: true, simulated: true };
-  }
-
+/**
+ * Odošle dva samostatné e-maily cez Gmail SMTP (nodemailer):
+ *  1. Notifikáciu správcovi (MANAGER_EMAIL, fallback na adam.horvat03@gmail.com)
+ *  2. Potvrdenie klientovi (booking.customer.email)
+ * Zlyhanie odoslania e-mailov je zachytené v try/catch a nikdy nezruší rezerváciu.
+ */
+export async function sendBookingEmails(booking) {
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+    const gmailUser = process.env.GMAIL_USER?.trim();
+    const gmailPass = process.env.GMAIL_APP_PASSWORD?.trim();
+    const managerEmail = process.env.MANAGER_EMAIL?.trim() || DEFAULT_MANAGER_EMAIL;
+    const clientEmail = booking?.customer?.email?.trim();
+
+    const { adminMail, clientMail } = buildEmails(booking);
+
+    if (!gmailUser || !gmailPass) {
+      console.warn('[EMAIL] ⚠️ GMAIL_USER alebo GMAIL_APP_PASSWORD nie sú nastavené. E-maily sa iba vypisujú do konzoly:');
+      console.log(`[EMAIL 1 – SPRÁVCA]\nKomu: ${managerEmail}\nPredmet: ${adminMail.subject}\n${adminMail.text}\n`);
+      console.log(`[EMAIL 2 – KLIENT]\nKomu: ${clientEmail}\nPredmet: ${clientMail.subject}\n${clientMail.text}\n`);
+      return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
       },
-      body: JSON.stringify({
-        from,
-        to: recipients,
-        subject: mail.subject,
-        text: mail.text,
-        html: mail.html,
-      }),
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const errMsg = data?.message || (typeof data === 'string' ? data : JSON.stringify(data));
-      throw new Error(`Resend API HTTP ${res.status}: ${errMsg}`);
+    const from = `Tenisové kurty <${gmailUser}>`;
+
+    // 1. Prvý samostatný e-mail: správcovi (MANAGER_EMAIL)
+    try {
+      const infoManager = await transporter.sendMail({
+        from,
+        to: managerEmail,
+        replyTo: clientEmail || undefined,
+        subject: adminMail.subject,
+        text: adminMail.text,
+        html: adminMail.html,
+      });
+      console.log(`[EMAIL] ✅ E-mail správcovi (${managerEmail}) odoslaný: ${infoManager.messageId}`);
+    } catch (errManager) {
+      console.error(`[EMAIL] ❌ Chyba pri odosielaní e-mailu správcovi (${managerEmail}):`, errManager);
     }
 
-    console.log(`[EMAIL] ✅ Úspešne odoslané na: ${recipients.join(', ')} (Resend ID: ${data?.id})`);
-    return { ok: true, id: data?.id };
+    // 2. Druhý samostatný e-mail: klientovi (customer.email)
+    if (clientEmail) {
+      try {
+        const infoClient = await transporter.sendMail({
+          from,
+          to: clientEmail,
+          subject: clientMail.subject,
+          text: clientMail.text,
+          html: clientMail.html,
+        });
+        console.log(`[EMAIL] ✅ Potvrdzovací e-mail klientovi (${clientEmail}) odoslaný: ${infoClient.messageId}`);
+      } catch (errClient) {
+        console.error(`[EMAIL] ❌ Chyba pri odosielaní e-mailu klientovi (${clientEmail}):`, errClient);
+      }
+    }
   } catch (err) {
-    console.error(`[EMAIL] ❌ Zlyhalo odoslanie na: ${recipients.join(', ')}:`, err.message);
-    throw err;
+    console.error('[EMAIL] ❌ Neočakávaná chyba v sendBookingEmails:', err);
   }
-}
-
-export const DEFAULT_ADMIN_EMAIL = 'adam.horvat03@gmail.com';
-
-/** Nikdy nevyhodí chybu – zlyhanie e-mailu nesmie zrušiť rezerváciu. */
-export async function sendBookingEmails(booking) {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-
-  // Ak je FROM_EMAIL nevyplnený alebo obsahuje neoverenú vzorovú doménu, použijeme oficiálnu Resend doménu onboarding@resend.dev
-  let from = process.env.FROM_EMAIL?.trim();
-  if (!from || from.includes('example.sk') || from.includes('example.com') || from.includes('test.com')) {
-    from = 'Tenisové kurty <onboarding@resend.dev>';
-  }
-
-  const managerEmail = process.env.MANAGER_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
-  const adminEmail = process.env.ADMIN_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
-  const admins = [...new Set([managerEmail, adminEmail, DEFAULT_ADMIN_EMAIL].filter(Boolean))];
-
-  const { adminMail, clientMail } = buildEmails(booking);
-
-  const jobs = [];
-
-  // 1. Notifikácia o novej rezervácii pre správcu/administrátora (adam.horvat03@gmail.com)
-  if (admins.length) {
-    jobs.push(send(adminMail, admins, from, apiKey));
-  }
-
-  // 2. Potvrdenie rezervácie odoslané priamo na adam.horvat03@gmail.com
-  jobs.push(send(clientMail, DEFAULT_ADMIN_EMAIL, from, apiKey));
-
-  // 3. Ak klient v rezervácii zadal inú e-mailovú adresu, pokúsime sa odoslať potvrdenie aj tam
-  const customerEmail = booking.customer?.email?.trim();
-  if (customerEmail && customerEmail.toLowerCase() !== DEFAULT_ADMIN_EMAIL.toLowerCase()) {
-    jobs.push(send(clientMail, customerEmail, from, apiKey));
-  }
-
-  const results = await Promise.allSettled(jobs);
-  results.forEach((r) => {
-    if (r.status === 'rejected') {
-      console.error('[EMAIL] Chyba úlohy:', r.reason?.message || r.reason);
-    }
-  });
 }
