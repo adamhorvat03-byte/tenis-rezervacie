@@ -178,20 +178,52 @@
 
   // ---------- PWA ----------
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /android/i.test(navigator.userAgent);
+
   let deferred = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault(); deferred = e;
-    if (!standalone && !sessionStorage.getItem('installDismissed')) $('install-banner').hidden = false;
-  });
+
+  if (isIOS) {
+    // Na iOS nie je možné programovo spustiť inštaláciu – zobrazujeme výlučne inštruktážnu bublinu
+    $('install-banner').hidden = true;
+    if (!standalone && !sessionStorage.getItem('installDismissed')) {
+      $('ios-hint').hidden = false;
+    }
+  } else {
+    $('ios-hint').hidden = true;
+    if (isAndroid) {
+      $('install-text').textContent = 'Pridajte si kurty na plochu pre rýchle rezervácie';
+      $('install-btn').textContent = 'Pridať';
+    } else {
+      $('install-text').textContent = 'Nainštalujte si aplikáciu do počítača pre rýchly prístup';
+      $('install-btn').textContent = 'Inštalovať';
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferred = e;
+      if (!standalone && !sessionStorage.getItem('installDismissed')) {
+        $('install-banner').hidden = false;
+      }
+    });
+  }
+
   $('install-btn').onclick = async () => {
     if (!deferred) return;
-    deferred.prompt(); await deferred.userChoice; deferred = null; $('install-banner').hidden = true;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    $('install-banner').hidden = true;
   };
-  $('install-close').onclick = () => { $('install-banner').hidden = true; sessionStorage.setItem('installDismissed', '1'); };
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (isIOS && !standalone && !sessionStorage.getItem('installDismissed')) $('ios-hint').hidden = false;
-  $('ios-close').onclick = () => { $('ios-hint').hidden = true; sessionStorage.setItem('installDismissed', '1'); };
+  $('install-close').onclick = () => {
+    $('install-banner').hidden = true;
+    sessionStorage.setItem('installDismissed', '1');
+  };
+  $('ios-close').onclick = () => {
+    $('ios-hint').hidden = true;
+    sessionStorage.setItem('installDismissed', '1');
+  };
 
   renderCourts(); renderCalendar();
 })();

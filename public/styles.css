@@ -76,12 +76,79 @@ input.invalid { border-color: #c0392b; }
 .success h2 { justify-content: center; }
 
 .install-banner {
-  display: flex; align-items: center; gap: .6rem; background: #fff; border-bottom: 1px solid var(--line);
-  padding: .5rem .8rem; font-size: .9rem; max-width: 640px; margin: .6rem auto 0; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  max-width: 400px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  color: var(--text);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, .06);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, .15);
+  margin: 0;
 }
-.install-banner span { flex: 1; }
-.install-banner button { border: 0; background: var(--green); color: #fff; border-radius: 8px; padding: .4rem .8rem; font: inherit; cursor: pointer; }
-.install-banner #install-close { background: transparent; color: var(--muted); }
+@media (min-width: 768px) {
+  .install-banner {
+    bottom: 24px;
+    right: 24px;
+    left: auto;
+    transform: none;
+    width: auto;
+    max-width: 350px;
+  }
+}
+.install-text {
+  flex: 1;
+  font-size: .9rem;
+  line-height: 1.35;
+  font-weight: 500;
+}
+.install-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.install-btn {
+  border: 0;
+  background: var(--green);
+  color: #fff;
+  border-radius: 8px;
+  padding: .55rem .95rem;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.install-btn:hover { background: var(--green-d); }
+.install-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease;
+}
+.install-close:hover { color: var(--text); background: var(--bg); }
 
 .ios-hint {
   position: fixed;

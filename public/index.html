@@ -21,10 +21,12 @@
     <p>Rezervujte si kurt online · <strong>8 € / hodina</strong> · otvorené 08:00 – 21:00</p>
   </header>
 
-  <div id="install-banner" class="install-banner" hidden>
-    <span id="install-text">Uložiť aplikáciu do mobilu</span>
-    <button id="install-btn" type="button">Uložiť</button>
-    <button id="install-close" type="button" aria-label="Zavrieť">✕</button>
+  <div id="install-banner" class="install-banner" role="region" aria-label="Inštalácia aplikácie" hidden>
+    <span id="install-text" class="install-text">Pridajte si kurty na plochu pre rýchle rezervácie</span>
+    <div class="install-actions">
+      <button id="install-btn" class="install-btn" type="button">Pridať</button>
+      <button id="install-close" class="install-close" type="button" aria-label="Zavrieť">✕</button>
+    </div>
   </div>
   <div id="ios-hint" class="ios-hint" role="dialog" aria-label="Inštalácia aplikácie" hidden>
     <p class="ios-hint-text">
