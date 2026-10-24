@@ -75,12 +75,76 @@ input.invalid { border-color: #c0392b; }
 .success .check { width: 4rem; height: 4rem; margin: 0 auto .6rem; border-radius: 50%; background: var(--green); color: #fff; font-size: 2.2rem; display: grid; place-items: center; }
 .success h2 { justify-content: center; }
 
-.install-banner, .ios-hint {
+.install-banner {
   display: flex; align-items: center; gap: .6rem; background: #fff; border-bottom: 1px solid var(--line);
   padding: .5rem .8rem; font-size: .9rem; max-width: 640px; margin: .6rem auto 0; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.08);
 }
 .install-banner span { flex: 1; }
-.install-banner button, .ios-hint button { border: 0; background: var(--green); color: #fff; border-radius: 8px; padding: .4rem .8rem; font: inherit; cursor: pointer; }
-.install-banner #install-close, .ios-hint button { background: transparent; color: var(--muted); }
-.ios-hint { justify-content: space-between; }
+.install-banner button { border: 0; background: var(--green); color: #fff; border-radius: 8px; padding: .4rem .8rem; font: inherit; cursor: pointer; }
+.install-banner #install-close { background: transparent; color: var(--muted); }
+
+.ios-hint {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 400px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--text);
+  padding: .95rem 2.2rem .95rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, .06);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .18), 0 8px 10px -6px rgba(0, 0, 0, .12);
+}
+.ios-hint::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 9px 9px 0 9px;
+  border-style: solid;
+  border-color: #fff transparent transparent transparent;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .08));
+}
+.ios-hint-text {
+  margin: 0;
+  font-size: .92rem;
+  line-height: 1.45;
+  text-align: center;
+}
+.ios-share-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -4px;
+  margin: 0 .2rem;
+  padding: .15rem .3rem;
+  border-radius: 6px;
+  background: #eef4ff;
+  color: #007aff;
+}
+.ios-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: .95rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ios-close:hover { background: var(--bg); color: var(--text); }
 footer { text-align: center; color: var(--muted); padding: 1rem; }
