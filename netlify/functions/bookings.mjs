@@ -32,7 +32,33 @@ function isValidAdmin(user, pass) {
   return String(user ?? '') === ADMIN_USER && String(pass ?? '') === ADMIN_PASS;
 }
 
-async function handleGet(url) {
+async function listAllBookings(store) {
+  const keys = await store.list('booking:');
+  const items = await Promise.all(keys.map((k) => store.get(k)));
+  return items
+    .filter((b) => b && b.bookingId && b.date && b.courtId)
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      const sa = (a.timeSlots && a.timeSlots[0]) || '';
+      const sb = (b.timeSlots && b.timeSlots[0]) || '';
+      if (sa !== sb) return sa.localeCompare(sb);
+      return String(a.courtId).localeCompare(String(b.courtId));
+    });
+}
+
+async function handleGet(req, url) {
+  // Ak správca žiada zoznam všetkých rezervácií a blokácií cez GET ?all=1
+  if (url.searchParams.get('all') === '1') {
+    const adminUser = req.headers.get('x-admin-user') || url.searchParams.get('adminUser');
+    const adminPass = req.headers.get('x-admin-password') || url.searchParams.get('adminPassword');
+    if (!isValidAdmin(adminUser, adminPass)) {
+      return json({ error: 'Neplatné prihlasovacie údaje správcu.' }, 401);
+    }
+    const store = await getStorage();
+    const bookings = await listAllBookings(store);
+    return json({ bookings });
+  }
+
   const date = url.searchParams.get('date');
   const courtId = url.searchParams.get('courtId');
   if (!validDate(date || '')) return json({ error: 'Neplatný dátum (očakávaný formát YYYY-MM-DD).' }, 400);
@@ -64,6 +90,47 @@ async function handleGet(url) {
   );
 
   return json({ date, courtId, bookedSlots: booked, slotDetails });
+}
+
+async function handleDelete(req, url) {
+  let body = {};
+  try { body = await req.json(); } catch {}
+
+  const adminUser = body.adminUser ?? req.headers.get('x-admin-user');
+  const adminPass = body.adminPassword ?? req.headers.get('x-admin-password');
+
+  if (!isValidAdmin(adminUser, adminPass)) {
+    return json({ error: 'Neplatné prihlasovacie údaje správcu.' }, 401);
+  }
+
+  const bookingId = String(body.bookingId || url.searchParams.get('bookingId') || '').trim();
+  if (!bookingId) {
+    return json({ error: 'Chýba identifikátor rezervácie (bookingId).' }, 400);
+  }
+
+  const store = await getStorage();
+  const booking = await store.get(`booking:${bookingId}`);
+
+  if (!booking) {
+    if (body.date && body.courtId && Array.isArray(body.timeSlots)) {
+      await Promise.all(
+        body.timeSlots.map((slot) => store.delete(slotKey(body.date, body.courtId, slot)))
+      );
+      return json({ ok: true, deletedBookingId: bookingId }, 200);
+    }
+    return json({ error: 'Rezervácia alebo blokácia sa nenašla.' }, 404);
+  }
+
+  // Odstránime všetky uzamknuté časové sloty tejto rezervácie/blokácie
+  const slots = Array.isArray(booking.timeSlots) ? booking.timeSlots : [];
+  await Promise.all(
+    slots.map((slot) => store.delete(slotKey(booking.date, booking.courtId, slot)))
+  );
+
+  // Odstránime samotný záznam rezervácie
+  await store.delete(`booking:${bookingId}`);
+
+  return json({ ok: true, deletedBookingId: bookingId }, 200);
 }
 
 async function handlePost(req) {
@@ -223,8 +290,9 @@ async function handlePost(req) {
 export default async (req) => {
   try {
     const url = new URL(req.url);
-    if (req.method === 'GET') return await handleGet(url);
+    if (req.method === 'GET') return await handleGet(req, url);
     if (req.method === 'POST') return await handlePost(req);
+    if (req.method === 'DELETE') return await handleDelete(req, url);
     return json({ error: 'Metóda nie je povolená.' }, 405);
   } catch (e) {
     console.error('[bookings] chyba', e);

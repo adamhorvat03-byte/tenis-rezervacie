@@ -1,4 +1,4 @@
-const CACHE = 'tenis-v4';
+const CACHE = 'tenis-v5';
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.json',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 

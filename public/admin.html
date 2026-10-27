@@ -12,7 +12,7 @@
 <body>
   <header class="hero">
     <h1>🔒 Správa kurtov (Admin)</h1>
-    <p>Rýchla blokácia termínov (turnaje, tréningy, údržba) bez e-mailových notifikácií</p>
+    <p>Rýchla blokácia termínov (turnaje, tréningy, údržba) a správa rezervácií</p>
   </header>
 
   <main id="admin-app">
@@ -84,12 +84,21 @@
         </form>
       </section>
 
-      <section class="card success" id="step-done" hidden>
+      <section class="card success" id="step-done" style="margin-bottom:.9rem" hidden>
         <div class="check">✓</div>
         <h2>Termín bol zablokovaný!</h2>
         <p id="done-text"></p>
         <p class="muted">Blokácia sa okamžite zobrazuje v klientskom kalendári (bez odoslania e-mailov).</p>
         <button id="new-block" class="primary" type="button">Ďalšia blokácia</button>
+      </section>
+
+      <!-- Zoznam existujúcich rezervácií a blokácií -->
+      <section class="card" id="bookings-list-section">
+        <div class="section-head">
+          <h2 style="margin:0">Aktuálne rezervácie a blokácie</h2>
+          <button id="refresh-bookings" class="secondary-btn" type="button">↻ Obnoviť</button>
+        </div>
+        <div id="admin-bookings-list" class="admin-bookings-list" aria-live="polite"></div>
       </section>
     </div>
   </main>

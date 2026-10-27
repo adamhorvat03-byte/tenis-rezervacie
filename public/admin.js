@@ -16,6 +16,17 @@
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const fmtDate = (s) => { const [y, m, d] = s.split('-'); return `${+d}. ${+m}. ${y}`; };
+  const fmtTimeSlots = (slots = []) => {
+    if (!slots.length) return '';
+    const sorted = [...slots].sort();
+    // Zistíme, či sú sloty súvislé
+    const idxs = sorted.map((s) => SLOTS.indexOf(s));
+    const contiguous = idxs.every((v, i) => i === 0 || v === idxs[i - 1] + 1);
+    if (contiguous) {
+      return `${sorted[0].split('-')[0]} – ${sorted[sorted.length - 1].split('-')[1]}`;
+    }
+    return sorted.join(', ');
+  };
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const state = {
@@ -27,6 +38,7 @@
     slotDetails: {},
     selected: [],
     loadId: 0,
+    allBookings: [],
   };
 
   // ---------- Prihlásenie (Meno: Tenis, Heslo: Tenis1) ----------
@@ -78,6 +90,7 @@
     $('dashboard').hidden = false;
     renderCourts();
     renderCalendar();
+    loadAllBookings();
   }
 
   // Obnovenie relácie ak už je správca prihlásený v sessionStorage
@@ -260,6 +273,7 @@
         return;
       }
       showDone(data.booking);
+      loadAllBookings();
     } catch {
       err.textContent = 'Chyba pripojenia. Skúste to znova.';
       err.hidden = false;
@@ -291,4 +305,122 @@
     loadSlots();
     updateForm();
   };
+
+  // ---------- Aktuálne rezervácie a blokácie (Zoznam + Rušenie) ----------
+  $('refresh-bookings').onclick = () => loadAllBookings();
+
+  async function loadAllBookings() {
+    if (!state.auth) return;
+    const container = $('admin-bookings-list');
+    container.innerHTML = '<p class="muted">Načítavam zoznam rezervácií…</p>';
+    try {
+      const r = await fetch('/api/bookings?all=1', {
+        headers: {
+          'x-admin-user': state.auth.username,
+          'x-admin-password': state.auth.password,
+        },
+        cache: 'no-store',
+      });
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      state.allBookings = data.bookings || [];
+      renderAllBookings();
+    } catch {
+      container.innerHTML = '<p class="error">Nepodarilo sa načítať zoznam rezervácií.</p>';
+    }
+  }
+
+  function renderAllBookings() {
+    const container = $('admin-bookings-list');
+    container.innerHTML = '';
+
+    if (!state.allBookings.length) {
+      container.innerHTML = '<p class="muted" style="margin:.4rem 0 0">Momentálne nie sú evidované žiadne rezervácie ani blokácie.</p>';
+      return;
+    }
+
+    state.allBookings.forEach((b) => {
+      const item = document.createElement('div');
+      item.className = 'booking-item' + (b.isAdminBlock ? ' is-block' : '');
+
+      const info = document.createElement('div');
+      info.className = 'booking-info';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'booking-top';
+
+      const badge = document.createElement('span');
+      badge.className = 'booking-badge ' + (b.isAdminBlock ? 'badge-block' : 'badge-client');
+      badge.textContent = b.isAdminBlock ? 'Blokácia' : 'Rezervácia';
+      topRow.appendChild(badge);
+
+      const courtStrong = document.createElement('strong');
+      courtStrong.textContent = b.courtName || b.courtId;
+      topRow.appendChild(courtStrong);
+
+      info.appendChild(topRow);
+
+      const meta = document.createElement('div');
+      meta.className = 'booking-meta';
+      meta.textContent = `${fmtDate(b.date)} · ${fmtTimeSlots(b.timeSlots)}`;
+      info.appendChild(meta);
+
+      const detail = document.createElement('div');
+      detail.className = 'booking-detail';
+      if (b.isAdminBlock) {
+        detail.textContent = `Dôvod: ${b.blockReason || 'Blokované'}`;
+      } else {
+        const cust = b.customer || {};
+        const parts = [cust.name, cust.phone, cust.email].filter(Boolean);
+        detail.textContent = `Klient: ${parts.join(' · ')}${cust.note ? ` (${cust.note})` : ''}`;
+      }
+      info.appendChild(detail);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'danger-btn';
+      delBtn.textContent = 'Zrušiť';
+      delBtn.onclick = () => deleteBooking(b, delBtn);
+
+      item.appendChild(info);
+      item.appendChild(delBtn);
+      container.appendChild(item);
+    });
+  }
+
+  async function deleteBooking(b, btn) {
+    if (!confirm('Naozaj chcete zrušiť tento termín?')) return;
+    btn.disabled = true;
+    btn.textContent = 'Ruším…';
+
+    try {
+      const r = await fetch('/api/bookings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: b.bookingId,
+          date: b.date,
+          courtId: b.courtId,
+          timeSlots: b.timeSlots,
+          adminUser: state.auth?.username,
+          adminPassword: state.auth?.password,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(data.error || 'Nepodarilo sa zrušiť termín.');
+        btn.disabled = false;
+        btn.textContent = 'Zrušiť';
+        return;
+      }
+      await loadAllBookings();
+      if (state.date === b.date && state.court.id === b.courtId) {
+        await loadSlots();
+      }
+    } catch {
+      alert('Chyba pripojenia k serveru.');
+      btn.disabled = false;
+      btn.textContent = 'Zrušiť';
+    }
+  }
 })();
