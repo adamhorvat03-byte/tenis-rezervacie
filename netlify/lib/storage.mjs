@@ -45,7 +45,7 @@ async function blobsStore() {
       const res = await store.setJSON(key, value, { onlyIfNew: true });
       if (res && typeof res.modified === 'boolean') return res.modified;
       const current = await store.get(key, { type: 'json', consistency: 'strong' });
-      return current === value;
+      return JSON.stringify(current) === JSON.stringify(value);
     },
     async delete(key) { await store.delete(key); },
     async list(prefix) {

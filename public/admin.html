@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin panel – Tenisové kurty</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1b6b3a">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <h1>🔒 Správa kurtov (Admin)</h1>
+    <p>Rýchla blokácia termínov (turnaje, tréningy, údržba) bez e-mailových notifikácií</p>
+  </header>
+
+  <main id="admin-app">
+    <!-- Prihlasovacie okno -->
+    <section class="card login-wrap" id="login-section">
+      <h2>Prihlásenie správcu</h2>
+      <form id="login-form" novalidate>
+        <label>Prihlasovacie meno
+          <input id="login-user" name="username" autocomplete="username" required>
+        </label>
+        <label>Heslo
+          <input id="login-pass" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <p id="login-error" class="error" role="alert" hidden></p>
+        <button id="login-btn" class="primary" type="submit">Prihlásiť sa</button>
+      </form>
+    </section>
+
+    <!-- Admin Dashboard (zobrazí sa po prihlásení) -->
+    <div id="dashboard" hidden>
+      <div class="admin-bar">
+        <span>Prihlásený správca: <strong>Tenis</strong></span>
+        <div style="display:flex;gap:.4rem">
+          <a href="/" class="secondary-btn" style="text-decoration:none">Klientsky web</a>
+          <button id="logout-btn" class="secondary-btn" type="button">Odhlásiť sa</button>
+        </div>
+      </div>
+
+      <section class="card" id="step-court" style="margin-bottom:.9rem">
+        <h2><span class="num">1</span> Vyberte kurt</h2>
+        <div id="courts" class="courts" role="tablist"></div>
+      </section>
+
+      <section class="card" id="step-date" style="margin-bottom:.9rem">
+        <h2><span class="num">2</span> Vyberte dátum</h2>
+        <div class="cal-head">
+          <button id="prev-month" type="button" aria-label="Predchádzajúci mesiac">‹</button>
+          <strong id="month-label"></strong>
+          <button id="next-month" type="button" aria-label="Nasledujúci mesiac">›</button>
+        </div>
+        <div class="cal-grid cal-dow">
+          <span>Po</span><span>Ut</span><span>St</span><span>Št</span><span>Pi</span><span>So</span><span>Ne</span>
+        </div>
+        <div id="calendar" class="cal-grid"></div>
+      </section>
+
+      <section class="card" id="step-time" style="margin-bottom:.9rem" hidden>
+        <h2><span class="num">3</span> Vyberte časy na zablokovanie</h2>
+        <p class="muted" id="time-sub"></p>
+        <div id="slots" class="slots" aria-live="polite"></div>
+        <p class="muted small">Kliknutím vyberte ľubovoľné voľné hodinové bloky.</p>
+      </section>
+
+      <section class="card" id="step-form" style="margin-bottom:.9rem" hidden>
+        <h2><span class="num">4</span> Dôvod blokácie</h2>
+        <dl class="summary">
+          <div><dt>Kurt</dt><dd id="sum-court"></dd></div>
+          <div><dt>Dátum</dt><dd id="sum-date"></dd></div>
+          <div><dt>Vybrané časy</dt><dd id="sum-time"></dd></div>
+        </dl>
+        <form id="block-form" novalidate>
+          <label>Dôvod blokácie *
+            <input id="block-reason" name="blockReason" placeholder="napr. Turnaj, Údržba kurtu, Tréning..." maxlength="120" required>
+          </label>
+          <p id="form-error" class="error" role="alert" hidden></p>
+          <button id="submit-btn" class="primary" type="submit">
+            <span class="spinner" hidden></span><span class="label">Zablokovať vybrané časy</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="card success" id="step-done" hidden>
+        <div class="check">✓</div>
+        <h2>Termín bol zablokovaný!</h2>
+        <p id="done-text"></p>
+        <p class="muted">Blokácia sa okamžite zobrazuje v klientskom kalendári (bez odoslania e-mailov).</p>
+        <button id="new-block" class="primary" type="button">Ďalšia blokácia</button>
+      </section>
+    </div>
+  </main>
+
+  <footer><small>© Tenisové kurty · Admin</small></footer>
+  <script src="/admin.js"></script>
+</body>
+</html>

@@ -50,7 +50,21 @@ main { max-width: 640px; margin: -.8rem auto 0; padding: 0 .8rem 2rem; display: 
 .slot:hover:not(:disabled) { border-color: var(--green); }
 .slot.selected { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
 .slot:disabled { background: #eceeed; color: #8b958e; cursor: not-allowed; border-color: #eceeed; }
-.slot small { display: block; font-size: .75rem; }
+.slot.admin-blocked:disabled {
+  background: #dfe4e8;
+  border-color: #c5ced6;
+  color: #48545e;
+}
+.slot.admin-blocked:disabled small {
+  color: #2f3b44;
+  font-weight: 700;
+}
+.slot small { display: block; font-size: .75rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.login-wrap { max-width: 400px; margin: 1.5rem auto; }
+.admin-bar { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .5rem; font-size: .88rem; }
+.secondary-btn { border: 1px solid var(--line); background: #fff; color: var(--text); border-radius: 8px; padding: .4rem .75rem; font: inherit; font-size: .85rem; cursor: pointer; }
+.secondary-btn:hover { background: var(--bg); }
 
 .summary { margin: 0 0 1rem; display: grid; gap: .3rem; background: var(--bg); padding: .8rem; border-radius: 10px; }
 .summary div { display: flex; justify-content: space-between; gap: 1rem; }

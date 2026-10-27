@@ -67,6 +67,9 @@ export const DEFAULT_MANAGER_EMAIL = 'adam.horvat03@gmail.com';
  * Zlyhanie odoslania e-mailov je zachytené v try/catch a nikdy nezruší rezerváciu.
  */
 export async function sendBookingEmails(booking) {
+  if (booking?.isAdminBlock) {
+    return;
+  }
   try {
     const gmailUser = process.env.GMAIL_USER?.trim();
     const gmailPass = process.env.GMAIL_APP_PASSWORD?.trim();

@@ -3,6 +3,9 @@ import { COURTS, ALL_SLOTS, PRICE_PER_HOUR } from '../lib/config.mjs';
 import { getStorage } from '../lib/storage.mjs';
 import { sendBookingEmails } from '../lib/email.mjs';
 
+const ADMIN_USER = 'Tenis';
+const ADMIN_PASS = 'Tenis1';
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -25,6 +28,10 @@ function todayLocal() {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Bratislava' }).format(new Date());
 }
 
+function isValidAdmin(user, pass) {
+  return String(user ?? '') === ADMIN_USER && String(pass ?? '') === ADMIN_PASS;
+}
+
 async function handleGet(url) {
   const date = url.searchParams.get('date');
   const courtId = url.searchParams.get('courtId');
@@ -34,19 +41,45 @@ async function handleGet(url) {
   const store = await getStorage();
   const prefix = `slot:${date}:${courtId}:`;
   const keys = await store.list(prefix);
-  const booked = keys.map((k) => k.slice(prefix.length)).filter((s) => ALL_SLOTS.includes(s)).sort();
-  return json({ date, courtId, bookedSlots: booked });
+  const validKeys = keys
+    .map((k) => ({ key: k, slot: k.slice(prefix.length) }))
+    .filter((x) => ALL_SLOTS.includes(x.slot))
+    .sort((a, b) => a.slot.localeCompare(b.slot));
+
+  const booked = validKeys.map((x) => x.slot);
+  const slotDetails = {};
+
+  await Promise.all(
+    validKeys.map(async ({ key, slot }) => {
+      const val = await store.get(key);
+      if (val && typeof val === 'object' && val.isAdminBlock) {
+        slotDetails[slot] = {
+          isAdminBlock: true,
+          reason: val.blockReason || 'Blokované',
+        };
+      } else {
+        slotDetails[slot] = { isAdminBlock: false };
+      }
+    })
+  );
+
+  return json({ date, courtId, bookedSlots: booked, slotDetails });
 }
 
 async function handlePost(req) {
   let data;
   try { data = await req.json(); } catch { return json({ error: 'Neplatné dáta požiadavky.' }, 400); }
 
-  const { courtId, date, timeSlots, customer = {} } = data || {};
-  const name = String(customer.name || '').trim();
-  const email = String(customer.email || '').trim();
-  const phone = String(customer.phone || '').trim();
-  const note = String(customer.note || '').trim().slice(0, 500);
+  // Overenie prihlásenia správcu (Admin Login)
+  if (data?.action === 'admin_login') {
+    if (!isValidAdmin(data.username, data.password)) {
+      return json({ error: 'Nesprávne prihlasovacie meno alebo heslo.' }, 401);
+    }
+    return json({ ok: true }, 200);
+  }
+
+  const isAdminBlock = Boolean(data?.isAdminBlock);
+  const { courtId, date, timeSlots } = data || {};
 
   if (!COURTS[courtId]) return json({ error: 'Neznámy kurt.' }, 400);
   if (!validDate(date || '')) return json({ error: 'Neplatný dátum.' }, 400);
@@ -56,9 +89,79 @@ async function handlePost(req) {
     return json({ error: 'Časové bloky musia byť v rozsahu 08:00 – 21:00.' }, 400);
 
   const idx = timeSlots.map((s) => ALL_SLOTS.indexOf(s)).sort((a, b) => a - b);
+  const slots = idx.map((i) => ALL_SLOTS[i]);
+
+  // Admin blokácia kurtu
+  if (isAdminBlock) {
+    if (!isValidAdmin(data.adminUser, data.adminPassword)) {
+      return json({ error: 'Neplatné prihlasovacie údaje správcu.' }, 401);
+    }
+    const blockReason = String(data.blockReason || '').trim().slice(0, 120);
+    if (!blockReason) {
+      return json({ error: 'Zadajte dôvod blokácie (napr. Turnaj).' }, 400);
+    }
+
+    const store = await getStorage();
+    const bookingId = randomUUID();
+    const slotValue = { bookingId, isAdminBlock: true, blockReason };
+
+    const locked = [];
+    for (const slot of slots) {
+      const ok = await store.setIfNew(slotKey(date, courtId, slot), slotValue);
+      if (!ok) {
+        await Promise.all(locked.map((s) => store.delete(slotKey(date, courtId, s))));
+        return json({ error: `Termín ${slot} je už obsadený. Vyberte prosím iný čas.` }, 409);
+      }
+      locked.push(slot);
+    }
+
+    const booking = {
+      bookingId,
+      courtId,
+      courtName: COURTS[courtId],
+      date,
+      timeSlots: slots,
+      pricePerHour: 0,
+      totalPrice: 0,
+      isAdminBlock: true,
+      blockReason,
+      customer: { name: 'Správca', email: '', phone: '', note: blockReason },
+      status: 'blocked',
+      paymentStatus: 'none',
+      paymentMethod: 'admin_block',
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await store.set(`booking:${bookingId}`, booking);
+    } catch (e) {
+      await Promise.all(slots.map((s) => store.delete(slotKey(date, courtId, s))));
+      console.error('[bookings] zápis admin blokácie zlyhal', e);
+      return json({ error: 'Blokáciu sa nepodarilo uložiť. Skúste to znova.' }, 500);
+    }
+
+    // E-mailové notifikácie sa pri isAdminBlock: true úplne preskočia
+    return json({
+      booking: {
+        bookingId,
+        courtName: booking.courtName,
+        date,
+        timeSlots: slots,
+        isAdminBlock: true,
+        blockReason,
+      },
+    }, 201);
+  }
+
+  // Štandardná klientska rezervácia
   if (idx.some((v, i) => i > 0 && v !== idx[i - 1] + 1))
     return json({ error: 'Vyberte po sebe idúce hodinové bloky.' }, 400);
-  const slots = idx.map((i) => ALL_SLOTS[i]);
+
+  const customer = data?.customer || {};
+  const name = String(customer.name || '').trim();
+  const email = String(customer.email || '').trim();
+  const phone = String(customer.phone || '').trim();
+  const note = String(customer.note || '').trim().slice(0, 500);
 
   if (name.length < 3 || name.length > 100) return json({ error: 'Zadajte meno a priezvisko.' }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: 'Zadajte platný e-mail.' }, 400);
@@ -86,6 +189,7 @@ async function handlePost(req) {
     timeSlots: slots,
     pricePerHour: PRICE_PER_HOUR,
     totalPrice: slots.length * PRICE_PER_HOUR,
+    isAdminBlock: false,
     customer: { name, email, phone, note },
     status: 'confirmed',
     paymentStatus: 'on_site',
@@ -101,10 +205,12 @@ async function handlePost(req) {
     return json({ error: 'Rezerváciu sa nepodarilo uložiť. Skúste to znova.' }, 500);
   }
 
-  try {
-    await sendBookingEmails(booking);
-  } catch (emailErr) {
-    console.error('[bookings] chyba pri odosielaní e-mailov:', emailErr);
+  if (!booking.isAdminBlock) {
+    try {
+      await sendBookingEmails(booking);
+    } catch (emailErr) {
+      console.error('[bookings] chyba pri odosielaní e-mailov:', emailErr);
+    }
   }
 
   // Klientovi vraciame iba nevyhnutné údaje

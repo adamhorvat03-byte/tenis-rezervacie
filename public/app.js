@@ -20,7 +20,7 @@
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const state = {
     court: COURTS[0], month: new Date(today.getFullYear(), today.getMonth(), 1),
-    date: null, booked: [], selected: [], loadId: 0,
+    date: null, booked: [], slotDetails: {}, selected: [], loadId: 0,
   };
 
   // ---------- Kurty ----------
@@ -72,6 +72,7 @@
       const data = await r.json();
       if (id !== state.loadId) return;
       state.booked = data.bookedSlots || [];
+      state.slotDetails = data.slotDetails || {};
       renderSlots();
     } catch {
       if (id === state.loadId) $('slots').innerHTML = '<p class="error">Nepodarilo sa načítať termíny. Skúste to znova.</p>';
@@ -87,11 +88,29 @@
     const box = $('slots'); box.innerHTML = '';
     SLOTS.forEach((s) => {
       const taken = state.booked.includes(s), past = isPastSlot(s);
+      const detail = state.slotDetails?.[s];
+      const isAdminBlock = Boolean(taken && detail?.isAdminBlock);
       const b = document.createElement('button');
       b.type = 'button'; b.dataset.slot = s;
-      b.className = 'slot' + (state.selected.includes(s) ? ' selected' : '');
+      b.className = 'slot'
+        + (state.selected.includes(s) ? ' selected' : '')
+        + (isAdminBlock ? ' admin-blocked' : '');
       b.disabled = taken || past;
-      b.innerHTML = `${s.replace('-', ' - ')}${taken ? '<small>Obsadené</small>' : past ? '<small>Uplynulo</small>' : ''}`;
+
+      const timeSpan = document.createElement('span');
+      timeSpan.textContent = s.replace('-', ' - ');
+      b.appendChild(timeSpan);
+
+      if (taken) {
+        const sub = document.createElement('small');
+        sub.textContent = isAdminBlock ? (detail.reason || 'Blokované') : 'Obsadené';
+        b.appendChild(sub);
+      } else if (past) {
+        const sub = document.createElement('small');
+        sub.textContent = 'Uplynulo';
+        b.appendChild(sub);
+      }
+
       b.onclick = () => toggleSlot(s);
       box.appendChild(b);
     });
