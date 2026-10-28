@@ -5,7 +5,7 @@ export const CLOSE_HOUR = 21;
 export const COURTS = {
   court_1: 'Kurt 1 – Antuka',
   court_2: 'Kurt 2 – Antuka',
-  court_3: 'Kurt 3 – Hard',
+  court_3: 'Kurt 3 – Antuka',
 };
 
 const pad = (n) => String(n).padStart(2, '0');

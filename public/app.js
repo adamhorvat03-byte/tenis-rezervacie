@@ -8,7 +8,7 @@
   const COURTS = [
     { id: 'court_1', name: 'Kurt 1 – Antuka', surface: 'Antuka', clay: true },
     { id: 'court_2', name: 'Kurt 2 – Antuka', surface: 'Antuka', clay: true },
-    { id: 'court_3', name: 'Kurt 3 – Hard', surface: 'Hard', clay: false },
+    { id: 'court_3', name: 'Kurt 3 – Antuka', surface: 'Antuka', clay: true },
   ];
   const MONTHS = ['január', 'február', 'marec', 'apríl', 'máj', 'jún', 'júl', 'august', 'september', 'október', 'november', 'december'];
 
@@ -186,6 +186,9 @@
     ['step-court', 'step-date', 'step-time', 'step-form'].forEach((id) => ($(id).hidden = true));
     const t = [...b.timeSlots].sort();
     $('done-text').textContent = `${b.courtName}, ${fmtDate(b.date)}, ${t[0].split('-')[0]} – ${t[t.length - 1].split('-')[1]} · ${b.totalPrice} €`;
+    if ($('spam-warning')) {
+      $('spam-warning').textContent = 'Skontrolujte si prosím aj priečinok Spam / Nevyžiadaná pošta.';
+    }
     $('step-done').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }

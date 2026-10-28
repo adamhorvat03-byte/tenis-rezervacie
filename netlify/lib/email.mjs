@@ -60,6 +60,18 @@ export function buildEmails(b) {
 
 export const DEFAULT_MANAGER_EMAIL = 'adam.horvat03@gmail.com';
 
+function createGmailTransporter(gmailUser, gmailPass) {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: gmailUser,
+      pass: gmailPass,
+    },
+  });
+}
+
 /**
  * Odošle dva samostatné e-maily cez Gmail SMTP (nodemailer):
  *  1. Notifikáciu správcovi (MANAGER_EMAIL, fallback na adam.horvat03@gmail.com)
@@ -85,16 +97,7 @@ export async function sendBookingEmails(booking) {
       return;
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: gmailUser,
-        pass: gmailPass,
-      },
-    });
-
+    const transporter = createGmailTransporter(gmailUser, gmailPass);
     const from = `Tenisové kurty <${gmailUser}>`;
 
     // 1. Prvý samostatný e-mail: správcovi (MANAGER_EMAIL)
@@ -129,5 +132,56 @@ export async function sendBookingEmails(booking) {
     }
   } catch (err) {
     console.error('[EMAIL] ❌ Neočakávaná chyba v sendBookingEmails:', err);
+  }
+}
+
+/**
+ * Odošle storno e-mail klientovi pri zrušení rezervácie administrátorom.
+ * Ak ide o admin blokáciu (isAdminBlock: true), e-mail sa neposiela.
+ */
+export async function sendCancellationEmail(booking, cancelReason) {
+  if (!booking || booking.isAdminBlock) {
+    return;
+  }
+  const clientEmail = booking?.customer?.email?.trim();
+  if (!clientEmail) {
+    return;
+  }
+
+  try {
+    const gmailUser = process.env.GMAIL_USER?.trim();
+    const gmailPass = process.env.GMAIL_APP_PASSWORD?.trim();
+    const date = formatDateSk(booking.date);
+    const time = formatTimeRange(booking.timeSlots || []);
+    const reason = String(cancelReason || 'Zrušené správcom').trim();
+
+    const subject = `Zrušenie rezervácie: ${booking.courtName || 'Tenisový kurt'} - ${date} o ${time}`;
+    const messageLine = `Vaša rezervácia dňa ${date} o ${time} bola zrušená administrátorom. Dôvod: ${reason}`;
+    const text = `Dobrý deň${booking.customer?.name ? ` ${booking.customer.name}` : ''},\n\n${messageLine}\n\nKurt: ${booking.courtName || booking.courtId}\nDátum: ${date}\nČas: ${time}\nDôvod zrušenia: ${reason}\n\nV prípade otázok nás neváhajte kontaktovať.`;
+    const html = `<div style="font-family:Arial,sans-serif;font-size:16px;color:#1d2a21">
+      <p>Dobrý deň${booking.customer?.name ? ` <b>${esc(booking.customer.name)}</b>` : ''},</p>
+      <p>${esc(messageLine)}</p>
+      <p style="color:#555;font-size:14px">Kurt: <b>${esc(booking.courtName || booking.courtId)}</b> · Dátum: <b>${esc(date)}</b> · Čas: <b>${esc(time)}</b></p>
+    </div>`;
+
+    if (!gmailUser || !gmailPass) {
+      console.warn('[EMAIL] ⚠️ GMAIL_USER alebo GMAIL_APP_PASSWORD nie sú nastavené. Storno e-mail sa iba vypisuje do konzoly:');
+      console.log(`[EMAIL – STORNO KLIENTOVI]\nKomu: ${clientEmail}\nPredmet: ${subject}\n${text}\n`);
+      return;
+    }
+
+    const transporter = createGmailTransporter(gmailUser, gmailPass);
+    const from = `Tenisové kurty <${gmailUser}>`;
+
+    const info = await transporter.sendMail({
+      from,
+      to: clientEmail,
+      subject,
+      text,
+      html,
+    });
+    console.log(`[EMAIL] ✅ Storno e-mail klientovi (${clientEmail}) odoslaný: ${info.messageId}`);
+  } catch (err) {
+    console.error(`[EMAIL] ❌ Chyba pri odosielaní storno e-mailu klientovi (${clientEmail}):`, err);
   }
 }

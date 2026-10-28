@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { COURTS, ALL_SLOTS, PRICE_PER_HOUR } from '../lib/config.mjs';
 import { getStorage } from '../lib/storage.mjs';
-import { sendBookingEmails } from '../lib/email.mjs';
+import { sendBookingEmails, sendCancellationEmail } from '../lib/email.mjs';
 
 const ADMIN_USER = 'Tenis';
 const ADMIN_PASS = 'Tenis1';
@@ -104,6 +104,7 @@ async function handleDelete(req, url) {
   }
 
   const bookingId = String(body.bookingId || url.searchParams.get('bookingId') || '').trim();
+  const cancelReason = String(body.cancelReason || '').trim().slice(0, 200);
   if (!bookingId) {
     return json({ error: 'Chýba identifikátor rezervácie (bookingId).' }, 400);
   }
@@ -129,6 +130,15 @@ async function handleDelete(req, url) {
 
   // Odstránime samotný záznam rezervácie
   await store.delete(`booking:${bookingId}`);
+
+  // Ak ide o bežnú klientsku rezerváciu (nie admin blokáciu), odošleme zákazníkovi storno e-mail s dôvodom zrušenia
+  if (!booking.isAdminBlock) {
+    try {
+      await sendCancellationEmail(booking, cancelReason || 'Zrušené administrátorom');
+    } catch (cancelEmailErr) {
+      console.error('[bookings] chyba pri odosielaní storno e-mailu:', cancelEmailErr);
+    }
+  }
 
   return json({ ok: true, deletedBookingId: bookingId }, 200);
 }
